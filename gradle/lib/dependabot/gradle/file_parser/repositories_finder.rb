@@ -12,8 +12,15 @@ module Dependabot
         CENTRAL_REPO_URL = "https://repo.maven.apache.org/maven2"
 
         REPOSITORIES_BLOCK_START = /(?:^|\s)repositories\s*\{/.freeze
-        MAVEN_REPO_REGEX =
+
+        GROOVY_MAVEN_REPO_REGEX =
           /maven\s*\{[^\}]*\surl[\s\(]\s*['"](?<url>[^'"]+)['"]/.freeze
+
+        KOTLIN_MAVEN_REPO_REGEX =
+          /maven\(['"](?<url>[^'"]+)['"]\)/.freeze
+
+        MAVEN_REPO_REGEX =
+          /(#{KOTLIN_MAVEN_REPO_REGEX}|#{GROOVY_MAVEN_REPO_REGEX})/.freeze
 
         def initialize(dependency_files:, target_dependency_file:)
           @dependency_files = dependency_files
@@ -137,7 +144,11 @@ module Dependabot
 
         def top_level_buildfile
           @top_level_buildfile ||=
-            dependency_files.find { |f| f.name == "build.gradle" }
+            dependency_files.find { |f| supported_build_file_names.include?(f.name) }
+        end
+
+        def supported_build_file_names
+          ["build.gradle", "build.gradle.kts"]
         end
       end
     end

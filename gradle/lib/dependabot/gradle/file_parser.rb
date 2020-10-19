@@ -36,6 +36,7 @@ module Dependabot
       PLUGIN_BLOCK_DECLARATION_REGEX = /(?:^|\s)plugins\s*\{/.freeze
       PLUGIN_BLOCK_ENTRY_REGEX =
         /id\s+"(?<id>#{PART})"\s+version\s+"(?<version>#{VSN_PART})"/.freeze
+      PLUGIN_ID_REGEX = /['"](?<id>#{PART})['"]/.freeze
 
       def parse
         dependency_set = DependencySet.new
@@ -51,7 +52,7 @@ module Dependabot
       private
 
       def map_value_regex(key)
-        /(?:^|\s|,|\()#{Regexp.quote(key)}:\s*['"](?<value>[^'"]+)['"]/
+        /(?:^|\s|,|\()#{Regexp.quote(key)}(\s=|:)\s*['"](?<value>[^'"]+)['"]/
       end
 
       def buildfile_dependencies(buildfile)
@@ -146,7 +147,7 @@ module Dependabot
 
         plugin_blocks.each do |blk|
           blk.lines.each do |line|
-            name    = line.match(/id\s+['"](?<id>#{PART})['"]/)&.
+            name    = line.match(/id(\s+#{PLUGIN_ID_REGEX}|\(#{PLUGIN_ID_REGEX}\))/)&.
                       named_captures&.fetch("id")
             version = line.match(/version\s+['"](?<version>#{VSN_PART})['"]/)&.
                       named_captures&.fetch("version")
@@ -289,14 +290,14 @@ module Dependabot
 
       def buildfiles
         @buildfiles ||=
-          dependency_files.select { |f| f.name.end_with?("build.gradle") }
+          dependency_files.select { |f| f.name.end_with?(*supported_build_file_names) }
       end
 
       def script_plugin_files
         @script_plugin_files ||=
           buildfiles.flat_map do |buildfile|
             buildfile.content.
-              scan(/apply from:\s+['"]([^'"]+)['"]/).flatten.
+              scan(/apply from(\s=|:)\s+['"]([^'"]+)['"]/).flatten.
               map { |f| dependency_files.find { |bf| bf.name == f } }.
               compact
           end.
@@ -304,7 +305,15 @@ module Dependabot
       end
 
       def check_required_files
-        raise "No build.gradle!" unless get_original_file("build.gradle")
+        raise "No build.gradle!" unless original_file
+      end
+
+      def original_file
+        dependency_files.find { |f| supported_build_file_names.include?(f.name) }
+      end
+
+      def supported_build_file_names
+        ["build.gradle", "build.gradle.kts"]
       end
     end
   end

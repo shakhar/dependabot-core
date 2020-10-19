@@ -9,11 +9,11 @@ module Dependabot
       require_relative "file_fetcher/settings_file_parser"
 
       def self.required_files_in?(filenames)
-        filenames.include?("build.gradle")
+        filenames.any? { |filename| supported_build_file_names.include?() }
       end
 
       def self.required_files_message
-        "Repo must contain a build.gradle."
+        "Repo must contain a build.gradle / build.gradle.kts file."
       end
 
       private
@@ -27,7 +27,10 @@ module Dependabot
       end
 
       def buildfile
-        @buildfile ||= fetch_file_from_host("build.gradle")
+        @buildfile ||= begin
+          file = supported_build_file
+          fetch_file_from_host(file.name) if file
+        end
       end
 
       def subproject_buildfiles
@@ -38,8 +41,12 @@ module Dependabot
           new(settings_file: settings_file).
           subproject_paths
 
-        subproject_paths.map do |path|
-          fetch_file_from_host(File.join(path, "build.gradle"))
+        buildfile_paths = subproject_paths.flat_map do |d|
+          supported_build_files(dir: d).map { |f| File.join(d, f.name) }
+        end
+
+        buildfile_paths.map do |path|
+          fetch_file_from_host(path)
         rescue Dependabot::DependencyFileNotFound
           # Gradle itself doesn't worry about missing subprojects, so we don't
           nil
@@ -74,9 +81,40 @@ module Dependabot
       end
 
       def settings_file
-        @settings_file ||= fetch_file_from_host("settings.gradle")
-      rescue Dependabot::DependencyFileNotFound
-        nil
+        @settings_file ||= begin
+          file = supported_settings_file
+          fetch_file_from_host(file.name) if file
+        rescue Dependabot::DependencyFileNotFound
+          nil
+        end
+      end
+
+      def supported_build_file(dir: ".")
+        supported_file(dir: dir, supported_file_names: supported_build_file_names)
+      end
+
+      def supported_build_files(dir: ".")
+        supported_files(dir: dir, supported_file_names: supported_build_file_names)
+      end
+
+      def supported_settings_file(dir: ".")
+        supported_file(dir: dir, supported_file_names: supported_settings_file_names)
+      end
+
+      def supported_build_file_names
+        ["build.gradle", "build.gradle.kts"]
+      end
+
+      def supported_settings_file_names
+        ["settings.gradle", "settings.gradle.kts"]
+      end
+
+      def supported_file(dir:, supported_file_names:)
+        repo_contents(dir: dir).find { |f| supported_file_names.include?(f.name) }
+      end
+
+      def supported_files(dir:, supported_file_names:)
+        repo_contents(dir: dir).select { |f| supported_file_names.include?(f.name) }
       end
     end
   end
