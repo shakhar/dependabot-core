@@ -41,6 +41,10 @@ func main() {
 		var args updater.Args
 		parseArgs(helperParams.Args, &args)
 		funcOut, funcErr = updater.UpdateDependencyFile(&args)
+	case "updateImportPaths":
+		var args updater.Args
+		parseArgs(helperParams.Args, &args)
+		funcOut, funcErr = updater.UpdateImportPaths(&args)
 	case "getVcsRemoteForImport":
 		var args importresolver.Args
 		parseArgs(helperParams.Args, &args)

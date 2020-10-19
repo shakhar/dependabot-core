@@ -2,6 +2,7 @@ package updatechecker
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"regexp"
 
@@ -59,14 +60,11 @@ func GetUpdatedVersion(args *Args) (interface{}, error) {
 		return nil, err
 	}
 
-	currentMajor := semver.Major(currentVersion)
 	latestVersion := args.Dependency.Version
 
 Outer:
 	for _, v := range versions {
-		if semver.Major(v) != currentMajor {
-			continue
-		}
+		fmt.Printf("%v", v)
 
 		if semver.Compare(v, latestVersion) < 1 {
 			continue
